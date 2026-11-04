@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -35,6 +36,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@Override
 	protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
 			HttpStatusCode statusCode, WebRequest request) {
+		// 표준 예외는 body가 null로 들어오므로 ErrorResponse에서 직접 꺼낸다.
+		if (body == null && ex instanceof ErrorResponse er) {
+			body = er.getBody();
+		}
 		if (body instanceof ProblemDetail pd) {
 			pd.setProperty("code", codeFor(statusCode));
 		}

@@ -11,3 +11,7 @@ spring:
       ddl-auto: validate
     properties:
       hibernate.jdbc.time_zone: UTC
+app:
+  # no default: server must not start without these
+  jwt-secret: ${APP_JWT_SECRET}
+  invite-code: ${APP_INVITE_CODE}
