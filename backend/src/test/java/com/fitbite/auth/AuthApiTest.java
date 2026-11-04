@@ -35,7 +35,7 @@ class AuthApiTest extends IntegrationTest {
 
 	@BeforeEach
 	void clean() {
-		jdbc.execute("truncate users cascade");
+		jdbc.execute("delete from users");
 	}
 
 	private ResultActions postJson(String path, String json) throws Exception {
