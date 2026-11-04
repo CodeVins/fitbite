@@ -1,0 +1,5 @@
+flutter/
+flutter_application_1/
+.env
+backend/build/
+backend/.gradle/
