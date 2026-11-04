@@ -177,14 +177,22 @@ class AuthApiTest extends IntegrationTest {
 				.andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
 	}
 
+	private String tokenFor(String id, Instant exp) {
+		return jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),
+				JwtClaimsSet.builder().subject(id).issuedAt(exp.minusSeconds(1800)).expiresAt(exp).build()))
+				.getTokenValue();
+	}
+
 	@Test
 	void expiredAccessToken_401() throws Exception {
-		String id = jdbc.queryForObject("select gen_random_uuid()::text", String.class);
-		Instant past = Instant.now().minus(2, ChronoUnit.HOURS);
-		String token = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),
-				JwtClaimsSet.builder().subject(id).issuedAt(past.minusSeconds(1800)).expiresAt(past).build()))
-				.getTokenValue();
-		mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + token))
+		signupOk("a@test.com");
+		String id = jdbc.queryForObject("select id::text from users", String.class);
+		// 같은 사용자(sub)라도 exp가 지난 토큰만 거부되어야 한다. 대조군은 미래 exp로 200.
+		mockMvc.perform(get("/api/v1/me").header("Authorization",
+				"Bearer " + tokenFor(id, Instant.now().plus(1, ChronoUnit.HOURS))))
+				.andExpect(status().isOk());
+		mockMvc.perform(get("/api/v1/me").header("Authorization",
+				"Bearer " + tokenFor(id, Instant.now().minus(2, ChronoUnit.HOURS))))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 	}

@@ -27,6 +27,9 @@ class AuthService {
 
 	AuthService(UserRepository users, ConsentRepository consents, TokenService tokens, PasswordEncoder encoder,
 			@Value("${app.invite-code}") String inviteCode) {
+		if (inviteCode.isBlank()) {
+			throw new IllegalStateException("APP_INVITE_CODE must not be blank");
+		}
 		this.users = users;
 		this.consents = consents;
 		this.tokens = tokens;
