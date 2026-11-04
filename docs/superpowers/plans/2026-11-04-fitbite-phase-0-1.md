@@ -400,6 +400,10 @@ git commit -m "feat(app): API 클라이언트와 토큰 저장 추가"
   - `authControllerProvider`: 상태 `AuthState.loading | signedOut | signedIn(Me me)`
   - 경로: `/login`, `/signup`, `/home`, `/workouts`, `/meals`, `/body`
 
+- [ ] **Step 0: 공통 테마를 사용자에게 확인받는다**
+
+Material 3 기반으로 `app/lib/core/theme.dart`에 색상, 글꼴, 버튼 크기를 정의하고 에뮬레이터 화면으로 보여 준다. 승인 전에는 다음 단계로 넘어가지 않는다.
+
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
 - `signup_submitDisabled_untilConsentChecked`
@@ -597,7 +601,7 @@ git commit -m "feat(workout): 미전송 운동 자동 동기화 추가"
 
 - [ ] **Step 1: 시안을 사용자에게 확인받는다**
 
-설계 문서 9장에 따라 운동 진행 화면 시안을 먼저 보여 주고 승인받는다. 승인 전에는 다음 단계로 넘어가지 않는다. 시안에는 지난 기록, 무게·횟수 입력, 세트 완료, 휴식 타이머, 오늘의 세트 목록을 넣는다.
+설계 문서 9장에 따라 운동 진행 화면 시안 2개를 가짜 데이터로 만들어 에뮬레이터 화면으로 보여 주고, 하나를 승인받는다. 승인 전에는 다음 단계로 넘어가지 않는다. 시안에는 지난 기록, 무게·횟수 입력, 세트 완료, 휴식 타이머, 오늘의 세트 목록을 넣는다.
 
 - [ ] **Step 2: 실패하는 테스트를 쓴다**
 
