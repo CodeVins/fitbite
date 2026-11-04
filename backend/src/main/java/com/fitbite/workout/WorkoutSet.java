@@ -7,14 +7,15 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "workout_sets")
-class WorkoutSet {
+class WorkoutSet implements Persistable<UUID> {
 
 	@Id
 	private UUID id;
-	@Column(name = "session_id")
+	@Column(name = "session_id", updatable = false)
 	private UUID sessionId;
 	@Column(name = "exercise_id")
 	private UUID exerciseId;
@@ -44,6 +45,17 @@ class WorkoutSet {
 
 	SetResponse toResponse(String exerciseName) {
 		return new SetResponse(id, exerciseId, orderNo, weightKg, reps, completedAt, restSeconds, exerciseName);
+	}
+
+	/** 세트는 항상 새로 넣는다. merge로 남의 행을 덮어쓰지 않고, ID가 겹치면 기본 키 위반이 난다. */
+	@Override
+	public boolean isNew() {
+		return true;
+	}
+
+	@Override
+	public UUID getId() {
+		return id;
 	}
 
 	UUID getSessionId() {

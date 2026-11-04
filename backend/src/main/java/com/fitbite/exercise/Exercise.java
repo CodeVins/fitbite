@@ -15,7 +15,7 @@ public class Exercise {
 
 	@Id
 	private UUID id;
-	@Column(name = "owner_user_id")
+	@Column(name = "owner_user_id", updatable = false)
 	private UUID ownerUserId;
 	private String name;
 	private String equipment;

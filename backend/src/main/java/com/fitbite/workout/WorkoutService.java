@@ -39,27 +39,25 @@ class WorkoutService {
 	@Transactional
 	WorkoutResponse upsert(UUID userId, UUID id, WorkoutUpsertRequest r) {
 		validate(r);
-		WorkoutSession session = sessions.findById(id).orElse(null);
-		if (session != null && !session.getUserId().equals(userId)) {
-			throw notFound();
-		}
 		for (UUID exerciseId : r.sets().stream().map(SetRequest::exerciseId).collect(Collectors.toSet())) {
 			exercises.requireAccessible(userId, exerciseId);
 		}
+		// 세션 ID를 먼저 선점하고(없을 때만 넣음) 행을 잠근다. 같은 사용자의 동시 요청은 순서대로 성공하고,
+		// 남의 세션은 선점 시점과 관계없이 404다. 읽고-쓰는 merge를 쓰지 않으므로 남의 행을 덮어쓸 수 없다.
+		sessions.insertIfAbsent(id, userId, r.startedAt(), r.endedAt());
+		WorkoutSession session = sessions.findForUpdate(id).filter(w -> w.getUserId().equals(userId))
+				.orElseThrow(WorkoutService::notFound);
 		List<UUID> setIds = r.sets().stream().map(SetRequest::id).toList();
 		if (!sets.findIdsInOtherSessions(setIds, id).isEmpty()) {
 			throw conflict();
 		}
-		if (session == null) {
-			session = new WorkoutSession(id, userId);
-		}
 		session.update(r.startedAt(), r.endedAt(), r.memo());
 		try {
-			sessions.saveAndFlush(session);
+			sessions.flush();
 			sets.deleteBySessionId(id);
 			sets.saveAllAndFlush(r.sets().stream().map(s -> new WorkoutSet(id, s)).toList());
 		} catch (DataIntegrityViolationException e) {
-			// 동시 요청이 검사를 지나 DB 제약에 걸린 경우(세션·세트 ID 충돌)도 500이 아니라 409다.
+			// 검사 뒤에 다른 세션이 같은 세트 ID를 커밋하면 기본 키 위반이 난다. 이것도 409다.
 			throw conflict();
 		}
 		return detail(session);

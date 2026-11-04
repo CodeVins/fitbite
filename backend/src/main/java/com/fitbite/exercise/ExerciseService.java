@@ -28,15 +28,13 @@ public class ExerciseService {
 		if (name.isEmpty()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "이름은 필수입니다.");
 		}
-		Exercise e = repository.findById(id).orElse(null);
-		if (e == null) {
-			e = new Exercise(id, userId, name, r.equipment(), r.bodyPart());
-		} else if (userId.equals(e.getOwnerUserId())) {
-			e.update(name, r.equipment(), r.bodyPart());
-		} else {
-			throw notFound();
-		}
-		return toResponse(repository.save(e));
+		// 없을 때만 내 운동으로 선점하고 행을 잠근다. merge로 읽고-쓰지 않으므로 동시 요청이
+		// 남의 운동이나 기본 운동을 덮어쓸 수 없다.
+		repository.insertIfAbsent(id, userId, name, r.equipment(), r.bodyPart().name());
+		Exercise e = repository.findForUpdate(id).filter(x -> userId.equals(x.getOwnerUserId()))
+				.orElseThrow(ExerciseService::notFound);
+		e.update(name, r.equipment(), r.bodyPart());
+		return toResponse(e);
 	}
 
 	/** 기본 운동이거나 내 운동이면 돌려주고, 아니면 404. 운동 기록(작업 5)이 사용한다. */

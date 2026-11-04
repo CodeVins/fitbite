@@ -13,7 +13,7 @@ class WorkoutSession {
 
 	@Id
 	private UUID id;
-	@Column(name = "user_id")
+	@Column(name = "user_id", updatable = false)
 	private UUID userId;
 	@Column(name = "started_at")
 	private Instant startedAt;
