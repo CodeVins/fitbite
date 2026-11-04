@@ -97,7 +97,11 @@ Dio buildApiClient({
         return handler.next(mapped);
       }
       try {
-        if (!await refresh()) return handler.next(mapped);
+        // 이미 다른 요청이 재발급을 끝냈다면(보낸 토큰 != 저장된 토큰) 재발급 없이 재시도한다.
+        final cur = await tokens.read();
+        final stale = cur != null &&
+            o.headers['Authorization'] != 'Bearer ${cur.accessToken}';
+        if (!stale && !await refresh()) return handler.next(mapped);
       } on DioException catch (re) {
         return handler.next(re);
       }

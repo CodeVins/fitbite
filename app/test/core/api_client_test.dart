@@ -179,6 +179,25 @@ void main() {
     expect(store.tokens, isNull);
   });
 
+  test('lateStale401_retriesWithoutSecondRefresh', () async {
+    // C는 옛 토큰으로 나갔고, 401은 A의 재발급이 끝난 뒤에 도착한다.
+    final dio = build((o) async {
+      if (o.path == '/c' && bearer(o) != 'Bearer new-a') {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        return json(401, {'code': 'UNAUTHORIZED', 'detail': 'expired'});
+      }
+      return guarded(o);
+    }, (o) async {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      return okRefresh(o);
+    });
+    final rs = await Future.wait([dio.get('/a'), dio.get('/c')]);
+    expect(rs.every((r) => r.statusCode == 200), isTrue);
+    expect(refresh.calls.length, 1);
+    expect(bearer(api.calls.last), 'Bearer new-a');
+    expect(signedOut, 0);
+  });
+
   test('problemDetail_mapsToApiError', () async {
     final dio = build(
       (o) => json(400, {'code': 'VALIDATION_FAILED', 'detail': 'weight must be positive'}),
