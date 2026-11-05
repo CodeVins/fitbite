@@ -66,3 +66,18 @@ class Prefill {
 
   const Prefill(this.weightKg, this.reps);
 }
+
+/// 종료되어 서버로 보내기를 기다리는 운동. 시각은 UTC다.
+class PendingSession {
+  final String id;
+  final DateTime startedAt;
+  final DateTime endedAt;
+  final List<LocalSet> sets;
+
+  const PendingSession({
+    required this.id,
+    required this.startedAt,
+    required this.endedAt,
+    required this.sets,
+  });
+}

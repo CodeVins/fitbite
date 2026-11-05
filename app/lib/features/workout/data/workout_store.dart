@@ -203,6 +203,114 @@ class WorkoutStore {
     return ex.isNotEmpty;
   }
 
+
+  // ---- 동기화(SyncService)가 쓰는 메서드 ----
+
+  /// 종료되어 전송을 기다리는 세션. 실패한 세션은 포함하지 않는다.
+  Future<List<PendingSession>> pendingSessions() async {
+    final rows = await (_db.select(_db.localSessions)
+          ..where((t) => t.syncState.equalsValue(SessionSyncState.pending))
+          ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
+        .get();
+    final result = <PendingSession>[];
+    for (final s in rows) {
+      final sets = await (_db.select(_db.localSets)
+            ..where((t) => t.sessionId.equals(s.id))
+            ..orderBy([(t) => OrderingTerm.asc(t.orderNo)]))
+          .get();
+      result.add(PendingSession(
+        id: s.id,
+        startedAt: s.startedAt.toUtc(),
+        endedAt: (s.finishedAt ?? s.startedAt).toUtc(),
+        sets: sets.map(_toSet).toList(),
+      ));
+    }
+    return result;
+  }
+
+  /// 재시도로 해결되지 않는 오류로 전송이 거부된 세션. 기록은 그대로 둔다.
+  Future<void> markFailed(String id, String message) =>
+      (_db.update(_db.localSessions)..where((t) => t.id.equals(id))).write(
+          LocalSessionsCompanion(
+              syncState: const Value(SessionSyncState.failed),
+              failureMessage: Value(message)));
+
+  /// 서버에 저장된 세션을 폰에서 지운다. 지난 기록 캐시는 남는다.
+  Future<void> removeSession(String id) => discardWorkout(id);
+
+  Future<List<Exercise>> pendingExercises() async {
+    final rows = await (_db.select(_db.localExercises)
+          ..where((t) => t.syncPending.equals(true)))
+        .get();
+    return rows.map(_toExercise).toList();
+  }
+
+  Future<void> markExerciseSynced(String id) =>
+      (_db.update(_db.localExercises)..where((t) => t.id.equals(id)))
+          .write(const LocalExercisesCompanion(syncPending: Value(false)));
+
+  /// 전송할 것이 있는가. 진행 중이거나 실패한 세션은 자동 전송 대상이 아니다.
+  Future<bool> hasPendingPush() async {
+    final s = await (_db.select(_db.localSessions)
+          ..where((t) => t.syncState.equalsValue(SessionSyncState.pending))
+          ..limit(1))
+        .get();
+    return s.isNotEmpty || (await pendingExercises()).isNotEmpty;
+  }
+
+  /// 서버 운동 목록으로 캐시를 바꾼다. 아직 보내지 않은 사용자 정의 운동은 유지한다.
+  Future<void> replaceExercises(List<Exercise> exercises) {
+    return _db.transaction(() async {
+      final pendingIds = (await pendingExercises()).map((e) => e.id).toSet();
+      await (_db.delete(_db.localExercises)
+            ..where((t) => t.syncPending.equals(false)))
+          .go();
+      await _db.batch((b) => b.insertAll(
+          _db.localExercises,
+          [
+            for (final e in exercises)
+              if (!pendingIds.contains(e.id))
+                LocalExercisesCompanion.insert(
+                    id: e.id,
+                    name: e.name,
+                    equipment: e.equipment,
+                    bodyPart: e.bodyPart)
+          ],
+          mode: InsertMode.insertOrReplace));
+    });
+  }
+
+  /// 서버의 지난 기록으로 캐시를 바꾼다. 전송 전 세션에 있는 운동은
+  /// 폰의 기록이 더 최신이므로 건드리지 않는다.
+  Future<void> replaceLastPerformance(Map<String, List<LastSet>> byExercise) {
+    return _db.transaction(() async {
+      final unsent = await (_db.selectOnly(_db.localSets, distinct: true)
+            ..addColumns([_db.localSets.exerciseId])
+            ..join([
+              innerJoin(_db.localSessions,
+                  _db.localSessions.id.equalsExp(_db.localSets.sessionId))
+            ])
+            ..where(_db.localSessions.syncState
+                .isNotValue(SessionSyncState.inProgress.index)))
+          .map((r) => r.read(_db.localSets.exerciseId)!)
+          .get();
+      final keep = unsent.toSet();
+      await (_db.delete(_db.lastPerformanceCache)
+            ..where((t) => t.exerciseId.isNotIn(keep)))
+          .go();
+      await _db.batch((b) => b.insertAll(_db.lastPerformanceCache, [
+            for (final e in byExercise.entries)
+              if (!keep.contains(e.key))
+                for (var i = 0; i < e.value.length; i++)
+                  LastPerformanceCacheCompanion.insert(
+                      exerciseId: e.key,
+                      orderNo: i + 1,
+                      weightKg: e.value[i].weightKg,
+                      reps: e.value[i].reps)
+          ]));
+    });
+  }
+
   Future<void> clearAll() {
     return _db.transaction(() async {
       for (final t in _db.allTables) {

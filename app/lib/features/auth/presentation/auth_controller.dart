@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
@@ -46,7 +49,7 @@ class AuthController extends Notifier<AuthState> {
       return;
     }
     try {
-      state = AuthSignedIn(await _repo.me());
+      await _enterSignedIn(await _repo.me());
     } catch (e) {
       if (e is ApiError && e.status == 401) {
         await sessionExpired();
@@ -58,12 +61,16 @@ class AuthController extends Notifier<AuthState> {
         stored = await _repo.storedMe();
       } catch (_) {}
       // 저장된 사용자가 없으면 보여 줄 사용자가 없어 로그인 화면으로 보낸다(토큰은 유지).
-      state = stored == null ? const AuthSignedOut() : AuthSignedIn(stored);
+      if (stored == null) {
+        state = const AuthSignedOut();
+      } else {
+        await _enterSignedIn(stored);
+      }
     }
   }
 
   Future<void> login(String email, String password) async =>
-      state = AuthSignedIn(await _repo.login(email, password));
+      _enterSignedIn(await _repo.login(email, password));
 
   Future<void> signup({
     required String email,
@@ -72,7 +79,7 @@ class AuthController extends Notifier<AuthState> {
     required String inviteCode,
     required bool consentHealthData,
   }) async =>
-      state = AuthSignedIn(await _repo.signup(
+      _enterSignedIn(await _repo.signup(
         email: email,
         password: password,
         nickname: nickname,
@@ -80,13 +87,55 @@ class AuthController extends Notifier<AuthState> {
         consentHealthData: consentHealthData,
       ));
 
+  /// 로그인 상태로 바꾸고 동기화를 시작한다. 동기화는 인증을 기다리게 하지 않는다.
+  Future<void> _enterSignedIn(Me me) async {
+    var ownerReady = true;
+    try {
+      // 다른 계정의 미전송 기록이 섞여 올라가지 않도록 가장 먼저 소유자를 맞춘다.
+      await ref.read(workoutStoreProvider).ensureOwner(me.id);
+    } catch (e) {
+      ownerReady = false;
+      debugPrint('ensureOwner failed: ${e.runtimeType}');
+    }
+    state = AuthSignedIn(me);
+    if (ownerReady) unawaited(_syncAfterSignIn());
+  }
+
+  Future<void> _syncAfterSignIn() async {
+    try {
+      final sync = ref.read(syncServiceProvider);
+      await sync.refreshCatalog();
+      await sync.push();
+      if (state is AuthSignedIn) sync.start();
+    } catch (e) {
+      debugPrint('sign-in sync failed: ${e.runtimeType}');
+    }
+  }
+
+  void _stopSync() {
+    try {
+      ref.read(syncServiceProvider).stop();
+    } catch (e) {
+      debugPrint('stop sync failed: ${e.runtimeType}');
+    }
+  }
+
+  /// 확정된 로그아웃. 폰에 남은 기록도 지운다(화면에서 먼저 확인을 받는다).
   Future<void> logout() async {
+    _stopSync();
     await _repo.logout();
+    try {
+      await ref.read(workoutStoreProvider).clearAll();
+    } catch (e) {
+      debugPrint('clearAll failed: ${e.runtimeType}');
+    }
     state = const AuthSignedOut();
   }
 
   /// 토큰 재발급까지 거부되어 api 클라이언트가 로그아웃시켰을 때 불린다.
+  /// 폰의 기록은 지우지 않는다. 같은 계정으로 다시 로그인하면 전송된다.
   Future<void> sessionExpired() async {
+    _stopSync();
     await _repo.clearMe();
     state = const AuthSignedOut();
   }

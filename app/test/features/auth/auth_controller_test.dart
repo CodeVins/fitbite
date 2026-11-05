@@ -1,17 +1,28 @@
+import 'package:drift/native.dart';
 import 'package:fitbite/core/api/api_error.dart';
+import 'package:fitbite/core/providers.dart';
 import 'package:fitbite/features/auth/presentation/auth_controller.dart';
+import 'package:fitbite/features/workout/data/local_db.dart';
+import 'package:fitbite/features/workout/data/workout_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../workout/sync_fakes.dart';
 import 'fakes.dart';
 
 Future<AuthState> _start(FakeAuthRepository repo) async {
-  final c = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repo)]);
-  addTearDown(c.dispose);
+  final db = LocalDb(NativeDatabase.memory());
+  final c = ProviderContainer(overrides: [
+    authRepositoryProvider.overrideWithValue(repo),
+    workoutStoreProvider.overrideWithValue(WorkoutStore(db)),
+    workoutApiProvider.overrideWithValue(FakeWorkoutApi()),
+  ]);
+  addTearDown(() async {
+    c.dispose();
+    await db.close();
+  });
   c.read(authControllerProvider);
-  await Future<void>.delayed(Duration.zero);
-  await Future<void>.delayed(Duration.zero);
+  await Future<void>.delayed(const Duration(milliseconds: 50));
   return c.read(authControllerProvider);
 }
 

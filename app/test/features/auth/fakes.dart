@@ -14,13 +14,14 @@ class FakeAuthRepository implements AuthRepository {
   bool session;
   Me? stored;
   Object? meResult; // Me 또는 ApiError
+  Me loginAs = testMe;
 
   FakeAuthRepository(
       {this.error, this.session = true, this.stored, this.meResult});
 
   @override
   Future<Me> login(String email, String password) async =>
-      error != null ? throw error! : testMe;
+      error != null ? throw error! : loginAs;
 
   @override
   Future<Me> signup({
@@ -30,7 +31,7 @@ class FakeAuthRepository implements AuthRepository {
     required String inviteCode,
     required bool consentHealthData,
   }) async =>
-      error != null ? throw error! : testMe;
+      error != null ? throw error! : loginAs;
 
   @override
   Future<Me> me() async {
