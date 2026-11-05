@@ -11,6 +11,13 @@ const apiBaseUrl = String.fromEnvironment(
 const _retriedKey = 'retried';
 const _noRefreshPaths = ['/auth/login', '/auth/signup', '/auth/refresh'];
 
+// 서버가 응답하지 않을 때 화면이 멈추지 않도록 제한 시간을 둔다.
+BaseOptions _options(String baseUrl) => BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+    );
+
 ApiError _toApiError(DioException e) {
   final data = e.response?.data;
   if (e.response != null && data is Map) {
@@ -38,11 +45,11 @@ Dio buildApiClient({
   HttpClientAdapter? adapter,
   HttpClientAdapter? refreshAdapter,
 }) {
-  final dio = Dio(BaseOptions(baseUrl: baseUrl));
+  final dio = Dio(_options(baseUrl));
   if (adapter != null) dio.httpClientAdapter = adapter;
 
   // 재발급 요청은 인터셉터 없는 별도 Dio로 보낸다.
-  final refreshDio = Dio(BaseOptions(baseUrl: baseUrl));
+  final refreshDio = Dio(_options(baseUrl));
   if (refreshAdapter != null) refreshDio.httpClientAdapter = refreshAdapter;
 
   Future<void> signOut() async {
