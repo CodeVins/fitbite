@@ -47,12 +47,16 @@ class AuthController extends Notifier<AuthState> {
     }
     try {
       state = AuthSignedIn(await _repo.me());
-    } on ApiError catch (e) {
-      if (e.status == 401) {
+    } catch (e) {
+      if (e is ApiError && e.status == 401) {
         await sessionExpired();
         return;
       }
-      final stored = await _repo.storedMe();
+      // 예상 못 한 오류(저장소, 파싱 등)도 로딩에 멈추지 않도록 저장된 사용자로 대체한다.
+      Me? stored;
+      try {
+        stored = await _repo.storedMe();
+      } catch (_) {}
       // 저장된 사용자가 없으면 보여 줄 사용자가 없어 로그인 화면으로 보낸다(토큰은 유지).
       state = stored == null ? const AuthSignedOut() : AuthSignedIn(stored);
     }

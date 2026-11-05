@@ -36,6 +36,7 @@ class FakeAuthRepository implements AuthRepository {
   Future<Me> me() async {
     final r = meResult;
     if (r is ApiError) throw r;
+    if (r is Exception) throw r;
     return (r as Me?) ?? testMe;
   }
 

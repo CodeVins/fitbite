@@ -44,4 +44,15 @@ void main() {
   test('restore_success_signedIn', () async {
     expect(await _start(FakeAuthRepository()), isA<AuthSignedIn>());
   });
+
+  test('restore_unexpectedError_fallsBackToStoredMe', () async {
+    final s = await _start(
+        FakeAuthRepository(stored: testMe, meResult: Exception('boom')));
+    expect(s, isA<AuthSignedIn>());
+  });
+
+  test('restore_unexpectedError_noStoredMe_signedOut', () async {
+    final s = await _start(FakeAuthRepository(meResult: Exception('boom')));
+    expect(s, isA<AuthSignedOut>());
+  });
 }

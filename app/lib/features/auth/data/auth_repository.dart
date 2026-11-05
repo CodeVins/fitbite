@@ -95,7 +95,13 @@ class AuthRepository {
       res.data!['accessToken'] as String,
       res.data!['refreshToken'] as String,
     ));
-    return me();
+    try {
+      return await me();
+    } catch (_) {
+      // 토큰 응답에는 사용자 정보가 없어, 내 정보를 못 받으면 로그인을 취소한다.
+      await _tokens.clear();
+      rethrow;
+    }
   }
 
   /// 서버에서 내 정보를 받아 저장해 둔다.
