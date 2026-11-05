@@ -2,17 +2,21 @@ import 'dart:async';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
+import 'package:fitbite/core/api/api_client.dart';
 import 'package:fitbite/core/api/api_error.dart';
+import 'package:fitbite/core/auth/token_store.dart';
 import 'package:fitbite/core/providers.dart';
 import 'package:fitbite/features/auth/data/auth_repository.dart';
 import 'package:fitbite/features/auth/presentation/auth_controller.dart';
 import 'package:fitbite/features/workout/data/local_db.dart';
 import 'package:fitbite/features/workout/data/sync_service.dart';
+import 'package:fitbite/features/workout/data/workout_api.dart';
 import 'package:fitbite/features/workout/data/workout_store.dart';
 import 'package:fitbite/features/workout/domain/models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/api_client_test.dart' show FakeAdapter, MemoryTokenStore, json;
 import '../auth/fakes.dart';
 import 'sync_fakes.dart';
 
@@ -197,6 +201,106 @@ void main() {
 
       expect(await store.searchExercises('옛'), hasLength(1));
       expect(await store.lastSets('e1'), hasLength(1));
+    });
+  });
+
+  group('stop과 타이머', () {
+    test('stop_duringPutWorkout_remainingSessionsNotSent', () async {
+      final a = await finishedSession(store);
+      await finishedSession(store);
+      final gate = Completer<void>();
+      api.gate = gate.future;
+
+      final run = sync.push();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      sync.stop(); // 로그아웃 등으로 중단
+      gate.complete();
+      await run;
+
+      expect(api.callsOf('putWorkout'), [a]);
+      expect(await store.pendingSessions(), hasLength(1));
+    });
+
+    test('stop_duringRefreshCatalog_discardsResult', () async {
+      final gate = Completer<void>();
+      api.catalogGate = gate.future;
+      api.exercises = const [
+        Exercise(id: 's1', name: '서버 운동', equipment: 'barbell', bodyPart: 'LEGS')
+      ];
+      api.last = {'s1': const [LastSet(weightKg: 30, reps: 8)]};
+
+      final run = sync.refreshCatalog();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      sync.stop();
+      gate.complete();
+      await run;
+
+      expect(await store.searchExercises(''), isEmpty);
+      expect(await store.lastSets('s1'), isEmpty);
+    });
+
+    test('lateUnauthorized_afterAccountSwitch_doesNotResendUnderNewAccount',
+        () async {
+      final sid = await finishedSession(store);
+      final tokens = MemoryTokenStore(const Tokens('a-old', 'a-r'));
+      final late401 = Completer<void>();
+      final adapter = FakeAdapter((o) async {
+        await late401.future; // A의 요청이 서버에서 늦게 401로 돌아온다
+        return json(401, {'code': 'UNAUTHORIZED', 'detail': 'x'});
+      });
+      final dio = buildApiClient(
+          baseUrl: 'http://test/api/v1',
+          tokens: tokens,
+          onSignedOut: () {},
+          adapter: adapter,
+          refreshAdapter: FakeAdapter((_) => json(500, {})));
+      final real = SyncService(store, WorkoutApi(dio), isSignedIn: () => true);
+      addTearDown(real.stop);
+
+      final run = real.push();
+      for (var i = 0; i < 100 && adapter.calls.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(adapter.calls, hasLength(1));
+      // A가 나가고 B가 로그인해 토큰이 바뀐 뒤에 401이 도착한다.
+      real.stop();
+      await tokens.save(const Tokens('b-new', 'b-r'));
+      late401.complete();
+      await run;
+
+      expect(adapter.calls, hasLength(1)); // B 토큰으로 다시 보내지 않는다
+      expect(adapter.calls.single.path, contains(sid));
+      expect(await store.pendingSessions(), hasLength(1));
+    });
+
+    SyncService timed() {
+      final s = SyncService(store, api,
+          isSignedIn: () => signedIn,
+          interval: const Duration(milliseconds: 20));
+      addTearDown(s.stop);
+      return s;
+    }
+
+    test('timer_noPendingWork_makesNoCalls', () async {
+      timed().start();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(api.calls, isEmpty);
+    });
+
+    test('timer_pendingWork_pushes', () async {
+      await finishedSession(store);
+      timed().start();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(api.callsOf('putWorkout'), hasLength(1));
+      expect(await store.pendingSessions(), isEmpty);
+    });
+
+    test('timer_afterStop_sendsNothing', () async {
+      final s = timed()..start();
+      s.stop();
+      await finishedSession(store);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(api.calls, isEmpty);
     });
   });
 

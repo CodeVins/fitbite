@@ -23,17 +23,20 @@ class WorkoutApi {
   static String _utc(DateTime t) => t.toUtc().toIso8601String();
   static String _date(DateTime d) => d.toIso8601String().substring(0, 10);
 
-  Future<void> putExercise(Exercise e) => _call(() => _dio.put<void>(
+  Future<void> putExercise(Exercise e, {CancelToken? cancelToken}) =>
+      _call(() => _dio.put<void>(
         '/exercises/${e.id}',
         data: {
           'name': e.name,
           'equipment': e.equipment,
           'bodyPart': e.bodyPart.toUpperCase(),
         },
+        cancelToken: cancelToken,
       ));
 
   /// 같은 id로 다시 보내도 결과가 같다(서버가 세션 전체를 덮어쓴다).
-  Future<void> putWorkout(PendingSession s) => _call(() => _dio.put<void>(
+  Future<void> putWorkout(PendingSession s, {CancelToken? cancelToken}) =>
+      _call(() => _dio.put<void>(
         '/workouts/${s.id}',
         data: {
           'startedAt': _utc(s.startedAt),
@@ -51,6 +54,7 @@ class WorkoutApi {
               }
           ],
         },
+        cancelToken: cancelToken,
       ));
 
   /// 날짜(yyyy-MM-dd)는 from, to의 연월일을 그대로 쓴다.

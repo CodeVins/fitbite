@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:fitbite/core/api/api_error.dart';
 import 'package:fitbite/features/workout/data/local_db.dart';
 import 'package:fitbite/features/workout/data/workout_api.dart';
@@ -9,6 +10,7 @@ class FakeWorkoutApi implements WorkoutApi {
   final calls = <String>[]; // 예: putExercise:id, putWorkout:id
   ApiError? Function(String call)? failWith;
   Future<void>? gate; // putWorkout이 이 future를 기다린다
+  Future<void>? catalogGate; // listExercises가 이 future를 기다린다
   ApiError? catalogError;
   List<Exercise> exercises = [];
   Map<String, List<LastSet>> last = {};
@@ -24,10 +26,10 @@ class FakeWorkoutApi implements WorkoutApi {
   }
 
   @override
-  Future<void> putExercise(Exercise e) => _record('putExercise:${e.id}');
+  Future<void> putExercise(Exercise e, {CancelToken? cancelToken}) => _record('putExercise:${e.id}');
 
   @override
-  Future<void> putWorkout(PendingSession s) async {
+  Future<void> putWorkout(PendingSession s, {CancelToken? cancelToken}) async {
     await gate;
     await _record('putWorkout:${s.id}');
   }
@@ -35,6 +37,7 @@ class FakeWorkoutApi implements WorkoutApi {
   @override
   Future<List<Exercise>> listExercises() async {
     calls.add('listExercises');
+    await catalogGate;
     if (catalogError != null) throw catalogError!;
     return exercises;
   }
