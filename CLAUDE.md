@@ -11,14 +11,14 @@
 
 ## 현재 진행 상황
 
-2026-11-04 기준. 작업을 마칠 때마다 이 장을 고친다.
+2026-11-05 기준. 작업을 마칠 때마다 이 장을 고친다.
 
 - **브랜치:** 개발은 `phase-0-1`에서 한다. 원격 저장소는 https://github.com/CodeVins/fitbite (공개)이다.
-- **완료:** 구현 계획 `docs/superpowers/plans/2026-11-04-fitbite-phase-0-1.md`의 작업 1~6. 각 작업은 검토를 통과했다.
-- **다음 할 일:** 작업 7(가입·로그인 화면과 앱 뼈대). `superpowers:subagent-driven-development`로 작업별 구현과 검토를 이어 간다.
-- **작업 7 전에 사용자가 할 일:** Android 에뮬레이터 준비가 안 되어 있다. SDK에 Command-line Tools가 없어 `flutter emulators --create`가 안 된다.
-- **디자인:** 어두운 배경에 라임색 포인트로 사용자가 정했다. 작업 7의 테마와 작업 10의 시안 2개는 에뮬레이터 화면으로 보여 주고 승인받는다.
+- **완료:** 구현 계획 `docs/superpowers/plans/2026-11-04-fitbite-phase-0-1.md`의 작업 1~7. 각 작업은 검토를 통과했다.
+- **다음 할 일:** 작업 8(폰 저장소와 세트 기본값 규칙). `superpowers:subagent-driven-development`로 작업별 구현과 검토를 이어 간다.
+- **디자인:** 어두운 배경에 라임색 포인트로 사용자가 정했고, 공통 테마(`app/lib/core/theme.dart`)는 승인받았다. 작업 10의 시안 2개는 에뮬레이터 화면으로 보여 주고 승인받는다.
 - **이어서 작업할 때:** 판단 근거와 미뤄 둔 작은 문제는 `docs/superpowers/plans/2026-11-04-fitbite-phase-0-1-progress.md`에 있다. 해당 영역을 건드리기 전에 읽고, 1단계 마지막 전체 검토에서 다시 살핀다.
+- **로컬 DB:** `.env`를 새 값으로 만들었으나 기존 볼륨 `fitbite_db-data`는 예전 비밀번호로 초기화되어 있어 접속되지 않는다. 지금은 `docker compose -p fitbite-verify up -d db`로 별도 볼륨을 쓴다.
 - **남은 정리:** 비어 있는 `flutter_application_1/` 폴더를 사용자가 지우면 `.gitignore`에서도 뺀다.
 
 ## 범위
