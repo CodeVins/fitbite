@@ -14,8 +14,8 @@
 2026-11-05 기준. 작업을 마칠 때마다 이 장을 실제 상태에 맞춰 고친다.
 
 - **브랜치:** 개발은 `phase-0-1`에서 한다. 원격 저장소는 https://github.com/CodeVins/fitbite (공개)이다.
-- **완료:** 구현 계획 `docs/superpowers/plans/2026-11-04-fitbite-phase-0-1.md`의 작업 1~8. 각 작업은 검토를 통과했다.
-- **다음 할 일:** 작업 9(동기화). `superpowers:subagent-driven-development`로 작업별 구현과 검토를 이어 간다.
+- **완료:** 구현 계획 `docs/superpowers/plans/2026-11-04-fitbite-phase-0-1.md`의 작업 1~9. 각 작업은 검토를 통과했다.
+- **다음 할 일:** 작업 9의 에뮬레이터 확인을 마친 뒤 작업 10(운동 진행 화면과 휴식 타이머). `superpowers:subagent-driven-development`로 작업별 구현과 검토를 이어 간다.
 - **디자인:** 어두운 배경에 라임색 포인트로 사용자가 정했고, 공통 테마(`app/lib/core/theme.dart`)는 승인받았다. 작업 10의 시안 2개는 에뮬레이터 화면으로 보여 주고 승인받는다.
 - **이어서 작업할 때:** 판단 근거와 미뤄 둔 작은 문제는 `docs/superpowers/plans/2026-11-04-fitbite-phase-0-1-progress.md`에 있다. 해당 영역을 건드리기 전에 읽고, 1단계 마지막 전체 검토에서 다시 살핀다.
 - **로컬 DB:** `.env`를 새 값으로 만들었으나 기존 볼륨 `fitbite_db-data`는 예전 비밀번호로 초기화되어 있어 접속되지 않는다. 지금은 `docker compose -p fitbite-verify up -d db`로 별도 볼륨을 쓴다.
