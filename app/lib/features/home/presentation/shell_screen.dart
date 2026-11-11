@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../workout/presentation/active_workout_screen.dart';
 
 /// 하단 탭(홈, 운동, 식단, 인바디)을 가진 뼈대 화면.
 class ShellScreen extends StatelessWidget {
@@ -96,4 +97,23 @@ class PlaceholderTab extends StatelessWidget {
   Widget build(BuildContext context) => Center(
       child: Text('$title 준비 중',
           style: Theme.of(context).textTheme.titleMedium));
+}
+
+/// 운동 탭의 임시 화면. 운동 목록은 이후 작업에서 채우고 이 버튼은 유지한다.
+class WorkoutsTab extends ConsumerWidget {
+  const WorkoutsTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FilledButton(
+              onPressed: () => startWorkoutAndOpen(context, ref),
+              child: const Text('운동 시작'),
+            ),
+          ],
+        ),
+      );
 }

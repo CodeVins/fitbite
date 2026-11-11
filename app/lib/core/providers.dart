@@ -48,3 +48,6 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   ref.onDispose(sync.stop);
   return sync;
 });
+
+/// 지금 시각. 테스트에서 바꿔 끼운다.
+final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);

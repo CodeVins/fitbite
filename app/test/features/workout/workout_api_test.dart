@@ -74,8 +74,8 @@ void main() {
         json(404, {'code': 'NOT_FOUND', 'detail': 'x'}));
     await expectLater(
         apiWith(a).putExercise(const Exercise(
-            id: 'e', name: 'n', equipment: '', bodyPart: 'chest')),
+            id: 'e', name: 'n', equipment: '', bodyPart: 'FULL_BODY')),
         throwsA(isA<ApiError>().having((e) => e.status, 'status', 404)));
-    expect(jsonEncode(a.calls.single.data), contains('"CHEST"'));
+    expect(jsonEncode(a.calls.single.data), contains('"FULL_BODY"'));
   });
 }

@@ -81,3 +81,14 @@ class PendingSession {
     required this.sets,
   });
 }
+
+/// 서버 BodyPart enum 이름과 화면 표시 이름. 폰에도 enum 이름 그대로 저장한다.
+const bodyPartLabels = {
+  'CHEST': '가슴',
+  'BACK': '등',
+  'SHOULDERS': '어깨',
+  'LEGS': '하체',
+  'ARMS': '팔',
+  'CORE': '코어',
+  'FULL_BODY': '전신',
+};

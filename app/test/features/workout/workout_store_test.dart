@@ -155,4 +155,41 @@ void main() {
     expect(row.name, '내 운동');
     expect(await s.hasUnsent(), isTrue);
   });
+
+  test('updateAndDeleteSet_onlyInProgressSession', () async {
+    final s = memStore();
+    await s.startWorkout();
+    final done = await s.completeSet(exerciseId: 'e1', weightKg: 60, reps: 10);
+    await s.finishWorkout(); // 전송 대기
+    await s.startWorkout();
+    final live = await s.completeSet(exerciseId: 'e1', weightKg: 50, reps: 5);
+
+    // 전송 중일 수 있는 대기 세션의 세트는 바꾸거나 지우지 않는다.
+    await expectLater(s.updateSet(done.id, 1, 1, null), throwsStateError);
+    await expectLater(s.deleteSet(done.id), throwsStateError);
+    expect((await s.pendingSessions()).single.sets.single.weightKg, 60);
+
+    await s.updateSet(live.id, 52.5, 6, 30);
+    var sets = (await s.activeWorkout())!.sets;
+    expect(sets.single.weightKg, 52.5);
+    expect(sets.single.restSeconds, 30);
+    await s.deleteSet(live.id);
+    sets = (await s.activeWorkout())!.sets;
+    expect(sets, isEmpty);
+  });
+
+  test('restLength_defaults90_andIsRemembered', () async {
+    final s = memStore();
+    expect(await s.restLengthSeconds(), 90);
+    await s.setRestLengthSeconds(120);
+    expect(await s.restLengthSeconds(), 120);
+  });
+
+  test('exerciseById_returnsCachedExercise', () async {
+    final db = LocalDb(NativeDatabase.memory());
+    final s = WorkoutStore(db, now: now);
+    await seedExercise(db, 'a', '벤치 프레스');
+    expect((await s.exerciseById('a'))!.name, '벤치 프레스');
+    expect(await s.exerciseById('x'), isNull);
+  });
 }

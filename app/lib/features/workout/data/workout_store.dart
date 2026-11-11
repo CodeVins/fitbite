@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 
 import '../../../core/uuid.dart';
 import '../domain/models.dart';
+import '../domain/rest_timer.dart';
 import 'local_db.dart';
 
 /// 운동 기록의 폰 저장소. 모든 쓰기는 즉시 SQLite에 반영된다.
 class WorkoutStore {
   static const _ownerKey = 'owner_user_id';
+  static const _restKey = 'rest_length_seconds';
 
   final LocalDb _db;
   final DateTime Function() _now;
@@ -101,17 +103,49 @@ class WorkoutStore {
     });
   }
 
+  /// 진행 중 운동의 세트만 고친다. 전송 대기 세션은 전송 중일 수 있어 건드리지 않는다.
   Future<void> updateSet(
       String id, double weightKg, int reps, int? restSeconds) async {
-    await (_db.update(_db.localSets)..where((t) => t.id.equals(id))).write(
-        LocalSetsCompanion(
+    final n = await (_db.update(_db.localSets)
+          ..where((t) => t.id.equals(id) & t.sessionId.isInQuery(_activeIds())))
+        .write(LocalSetsCompanion(
             weightKg: Value(weightKg),
             reps: Value(reps),
             restSeconds: Value(restSeconds)));
+    if (n == 0) throw StateError('set is not in the active workout');
   }
 
-  Future<void> deleteSet(String id) =>
-      (_db.delete(_db.localSets)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteSet(String id) async {
+    final n = await (_db.delete(_db.localSets)
+          ..where((t) => t.id.equals(id) & t.sessionId.isInQuery(_activeIds())))
+        .go();
+    if (n == 0) throw StateError('set is not in the active workout');
+  }
+
+  JoinedSelectStatement _activeIds() => _db.selectOnly(_db.localSessions)
+    ..addColumns([_db.localSessions.id])
+    ..where(
+        _db.localSessions.syncState.equalsValue(SessionSyncState.inProgress));
+
+  /// 마지막으로 쓴 휴식 길이(초). 운동별로 나누지 않는다.
+  Future<int> restLengthSeconds() async {
+    final row = await (_db.select(_db.localMeta)
+          ..where((t) => t.key.equals(_restKey)))
+        .getSingleOrNull();
+    return int.tryParse(row?.value ?? '') ?? RestTimer.defaultSeconds;
+  }
+
+  Future<void> setRestLengthSeconds(int seconds) => _db
+      .into(_db.localMeta)
+      .insertOnConflictUpdate(
+          LocalMetaCompanion.insert(key: _restKey, value: '$seconds'));
+
+  Future<Exercise?> exerciseById(String id) async {
+    final row = await (_db.select(_db.localExercises)
+          ..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    return row == null ? null : _toExercise(row);
+  }
 
   Future<void> setRestEndsAt(DateTime endsAt) async {
     final session = await _activeSession();

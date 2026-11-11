@@ -29,7 +29,7 @@ class WorkoutApi {
         data: {
           'name': e.name,
           'equipment': e.equipment,
-          'bodyPart': e.bodyPart.toUpperCase(),
+          'bodyPart': e.bodyPart,
         },
         cancelToken: cancelToken,
       ));
