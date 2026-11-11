@@ -192,6 +192,10 @@ class WorkoutController extends AsyncNotifier<WorkoutView?> {
   Future<void> deleteSet(LocalSet s) => _run((v) async {
         await _store.deleteSet(s.id);
         await _reload(v.exercise);
+        // 휴식 중이던 마지막 세트를 지웠으면 저장소가 휴식을 끝냈으므로 알림도 취소한다.
+        if (v.resting && state.value?.resting == false) {
+          await _safeNotify('cancel', _notifier.cancel);
+        }
       });
 
   /// 운동을 끝낸다. 세트가 있으면 전송 대기로 두고 바로 전송을 시도한다.

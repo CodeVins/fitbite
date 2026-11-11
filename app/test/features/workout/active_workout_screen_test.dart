@@ -413,4 +413,48 @@ void main() {
     expect(notifier.calls, ['prepare']);
     expect(find.text('운동을 선택하세요'), findsOneWidget);
   });
+
+  testWidgets('deleteLatestSetDuringRest_keepsPreviousRest_endsRest',
+      (tester) async {
+    await pumpScreen(tester);
+    await pick(tester, '벤치 프레스');
+    await tapText(tester, '세트 완료');
+    await advance(tester, 60);
+    await tapText(tester, '다음 세트 시작'); // 1세트 휴식 60초
+    await advance(tester, 30);
+    await tapText(tester, '세트 완료'); // 잘못 누른 2세트
+
+    await tapText(tester, '60 kg × 8회');
+    await tapText(tester, '삭제');
+
+    // 지운 세트의 휴식은 끝내고 알림도 취소한다.
+    expect(find.textContaining('휴식'), findsNothing);
+    expect(notifier.calls.last, 'cancel');
+    expect((await store.activeWorkout())!.restEndsAt, isNull);
+    expect(find.text('세트 완료'), findsOneWidget);
+    expect((await store.activeWorkout())!.sets.single.restSeconds, 60);
+  });
+
+  testWidgets('editOrDeleteOtherSetDuringRest_keepsRestRunning',
+      (tester) async {
+    await pumpScreen(tester);
+    await pick(tester, '벤치 프레스');
+    await tapText(tester, '세트 완료');
+    await tapText(tester, '다음 세트 시작');
+    await tapText(tester, '세트 완료');
+    final ends = (await store.activeWorkout())!.restEndsAt;
+
+    // 휴식 중인 마지막 세트를 고치는 것은 휴식을 끝내지 않는다.
+    await tapText(tester, '60 kg × 8회');
+    await tester.enterText(find.byKey(const Key('editReps')), '7');
+    await tapText(tester, '저장');
+    expect((await store.activeWorkout())!.restEndsAt, ends);
+
+    // 앞 세트를 지워도 마지막 세트의 휴식은 계속된다.
+    await tapText(tester, '60 kg × 10회');
+    await tapText(tester, '삭제');
+    expect((await store.activeWorkout())!.restEndsAt, ends);
+    expect(find.text('다음 세트 시작'), findsOneWidget);
+    expect(notifier.calls.last, startsWith('schedule:'));
+  });
 }

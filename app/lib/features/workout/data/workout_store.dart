@@ -94,7 +94,8 @@ class WorkoutStore {
             ..orderBy([(t) => OrderingTerm.desc(t.orderNo)])
             ..limit(1))
           .getSingleOrNull();
-      if (last != null) {
+      // 이미 기록된 휴식은 덮지 않는다(그 뒤 세트를 지운 경우 등).
+      if (last != null && last.restSeconds == null) {
         final secs = _nowUtc.difference(last.completedAt.toUtc()).inSeconds;
         await (_db.update(_db.localSets)..where((t) => t.id.equals(last.id)))
             .write(LocalSetsCompanion(restSeconds: Value(secs < 0 ? 0 : secs)));
@@ -115,11 +116,22 @@ class WorkoutStore {
     if (n == 0) throw StateError('set is not in the active workout');
   }
 
-  Future<void> deleteSet(String id) async {
-    final n = await (_db.delete(_db.localSets)
-          ..where((t) => t.id.equals(id) & t.sessionId.isInQuery(_activeIds())))
-        .go();
-    if (n == 0) throw StateError('set is not in the active workout');
+  /// 진행 중 운동의 세트만 지운다. 휴식은 마지막 세트의 것이므로, 마지막 세트를
+  /// 지우면 휴식도 끝낸다. 그대로 두면 "다음 세트 시작"이 앞 세트의 휴식 시간을 덮어쓴다.
+  Future<void> deleteSet(String id) {
+    return _db.transaction(() async {
+      final session = await _activeSession();
+      final latest = await (_db.select(_db.localSets)
+            ..where((t) => t.sessionId.equals(session.id))
+            ..orderBy([(t) => OrderingTerm.desc(t.orderNo)])
+            ..limit(1))
+          .getSingleOrNull();
+      final n = await (_db.delete(_db.localSets)
+            ..where((t) => t.id.equals(id) & t.sessionId.equals(session.id)))
+          .go();
+      if (n == 0) throw StateError('set is not in the active workout');
+      if (latest?.id == id) await _clearRest(session.id);
+    });
   }
 
   JoinedSelectStatement _activeIds() => _db.selectOnly(_db.localSessions)

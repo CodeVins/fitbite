@@ -192,4 +192,23 @@ void main() {
     expect((await s.exerciseById('a'))!.name, '벤치 프레스');
     expect(await s.exerciseById('x'), isNull);
   });
+
+  test('deleteLatestSetDuringRest_clearsRest_keepsPreviousRestSeconds',
+      () async {
+    final s = memStore();
+    await s.startWorkout();
+    await s.completeSet(exerciseId: 'e1', weightKg: 60, reps: 10);
+    clock = clock.add(const Duration(seconds: 60));
+    await s.startNextSet();
+    clock = clock.add(const Duration(seconds: 30));
+    final second = await s.completeSet(exerciseId: 'e1', weightKg: 60, reps: 8);
+    await s.setRestEndsAt(clock.add(const Duration(seconds: 90)));
+
+    await s.deleteSet(second.id);
+    expect((await s.activeWorkout())!.restEndsAt, isNull);
+
+    clock = clock.add(const Duration(seconds: 20));
+    await s.startNextSet();
+    expect((await s.activeWorkout())!.sets.single.restSeconds, 60);
+  });
 }
